@@ -97,7 +97,17 @@ def find_all_path_KG(question_entities,result_entities,G):
 
 def generate_node_embeddings(knowledge_graph_path = '/path/to/kg.csv', emb_model_name = 'abhinand/MedEmbed-large-v0.1'):
     knowledge_graph = pd.read_csv(knowledge_graph_path, low_memory=False)
-    emb_model = SentenceTransformer(emb_model_name).to('cuda')
+    
+    # Auto-select device
+    if torch.backends.mps.is_available():
+        device = 'mps'
+    elif torch.cuda.is_available():
+        device = 'cuda'
+    else:
+        device = 'cpu'
+    
+    emb_model = SentenceTransformer(emb_model_name).to(device)
+    print(f"Using device for embeddings: {device}")
     types = knowledge_graph['x_type'].unique()
     nodeemb_dict = {}
     for t in types:

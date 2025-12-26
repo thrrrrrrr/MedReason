@@ -153,7 +153,17 @@ if __name__ == '__main__':
     G = utils.build_graph(selected_columns_list)
 
     emb_model = SentenceTransformer("abhinand/MedEmbed-large-v0.1")
-    emb_model.to('cuda')
+    
+    # Auto-select device: MPS (Mac) > CUDA (NVIDIA) > CPU
+    if torch.backends.mps.is_available():
+        device = 'mps'
+    elif torch.cuda.is_available():
+        device = 'cuda'
+    else:
+        device = 'cpu'
+    
+    emb_model.to(device)
+    print(f"Using device: {device}")
     
     # generate node embeddings first if not exist
     # utils.generate_node_embeddings(knowledge_graph_path = '/path/to/kg.csv', emb_model_name = 'abhinand/MedEmbed-large-v0.1')
