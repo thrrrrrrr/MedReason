@@ -204,9 +204,42 @@ if __name__ == '__main__':
                     reason = "No reasoning path found. Error: " + str(e)
         
                 logger.info(f"Reasoning: {reason}")
-                data_list = {"id": ids, "question": question, "huatuo": comparing_reasoning, "answer": answer, "options": options, "reasoning": reason} 
         
+                # extracting paths
+                try:
+                    paths_result = utils.extract_reasoning_paths_complete(reason)
+                    correct_path = paths_result["correct_reasoning_path"]
+                    error_path_1 = paths_result["error_reasoning_path_1"]
+                    error_path_2 = paths_result["error_reasoning_path_2"]
+                    error_path_3 = paths_result["error_reasoning_path_3"]
+                    error_path_4 = paths_result["error_reasoning_path_4"]
+                    
+                    logger.info(f"Correct path: {correct_path}")
+                    logger.info(f"Error path 1: {error_path_1}")
+                    logger.info(f"Error path 2: {error_path_2}")
+                    logger.info(f"Error path 3: {error_path_3}")
+                    logger.info(f"Error path 4: {error_path_4}")
+                except Exception as e:
+                    logger.error(f"Error extracting paths: {e}")
+                    correct_path = "Error: Could not extract path"
+                    error_path_1 = error_path_2 = error_path_3 = error_path_4 = "Error: Could not generate error paths"
+                
+                data_list = {
+                    "id": ids, 
+                    "question": question, 
+                    "reasoning": reason, 
+                    "huatuo": comparing_reasoning, 
+                    "answer": answer, 
+                    "options": options, 
+                    "correct_reasoning_path": correct_path, 
+                    "error_reasoning_path_1": error_path_1, 
+                    "error_reasoning_path_2": error_path_2, 
+                    "error_reasoning_path_3": error_path_3, 
+                    "error_reasoning_path_4": error_path_4
+                } 
+
                 f.write(json.dumps(data_list) + "\n")
+                f.flush()
     else:
         with multiprocessing.Pool(
             processes=args.batch_size,

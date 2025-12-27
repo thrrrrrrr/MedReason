@@ -481,5 +481,105 @@ Answer from medical student:
 {llm_output}
 """
     return run_llm(prompt, engine=engine)
+
+
+def extract_correct_reasoning_path(reasoning_text, temperature=0.0, max_tokens=1000, engine="deepseek"):
+    prompt = f"""
+You are a medical reasoning expert. Given a reasoning text, extract ONE reasoning path from the "Finding reasoning paths" section.
+
+If there are multiple paths, randomly select one.
+If there is no "Finding reasoning paths" section or it's empty, generate a reasonable reasoning path based on the reasoning process.
+
+The output should be a single path in the format: "Entity1 -> Entity2 -> Entity3 -> ... -> EntityN"
+
+Example output:
+"Neoadjuvant chemotherapy -> Cisplatin -> Protein-DNA cross-linking -> Therapeutic effect on cancer"
+
+### Input Reasoning Text:
+{reasoning_text}
+
+### Output Format:
+Return ONLY the reasoning path string, nothing else.
+
+Reasoning path:
+"""
+    
+    result = run_llm(prompt, temperature, max_tokens, engine)
+    return result.strip()
+
+
+def generate_error_reasoning_paths(correct_path, reasoning_text, temperature=0.7, max_tokens=2000, engine="deepseek"):
+    prompt = f"""
+You are a medical reasoning expert. Given a correct reasoning path and the original reasoning text, generate FOUR incorrect reasoning paths according to the following rules:
+
+Correct reasoning path:
+{correct_path}
+
+Original reasoning text:
+{reasoning_text}
+
+Generate 4 error paths with these specific modifications:
+
+1. **Error Path 1 (Shuffled)**: Randomly shuffle the order of entities in the reasoning path
+   - Keep all entities but change their order
+   - Make sure it's logically incorrect
+
+2. **Error Path 2 (Wrong Conclusion)**: Keep the path mostly correct but change the final conclusion to something wrong
+   - Keep first N-1 entities the same
+   - Change only the last entity to a medically incorrect conclusion
+
+3. **Error Path 3 (Wrong Entity)**: Replace one intermediate entity with an incorrect medical term
+   - Keep first and last entities
+   - Replace one entity in the middle with a different disease/condition
+
+4. **Error Path 4 (Missing Steps)**: Randomly remove some entities from the path
+   - Delete 1-2 intermediate entities
+   - Make sure the path becomes logically incomplete
+
+### Output Format:
+Return a JSON object with exactly this structure:
+```json
+{{
+    "error_path_1": "shuffled path here",
+    "error_path_2": "path with wrong conclusion here",
+    "error_path_3": "path with wrong entity here",
+    "error_path_4": "path with missing steps here"
+}}
+```
+
+Generate the 4 error paths:
+"""
+    
+    result = run_llm(prompt, temperature, max_tokens, engine)
+    
+    try:
+        error_paths = get_json_from_generated_text(result)
+        return error_paths
+    except Exception as e:
+        print(f"Error parsing error paths: {e}")
+        # 返回默认错误路径
+        return {
+            "error_path_1": "",
+            "error_path_2": "",
+            "error_path_3": "",
+            "error_path_4": ""
+        }
+
+
+def extract_reasoning_paths_complete(reasoning_text, temperature=0.0, max_tokens=5000, engine="deepseek"):
+    # 1. 提取正确的推理路径
+    correct_path = extract_correct_reasoning_path(reasoning_text, temperature, max_tokens, engine)
+    
+    # 2. 生成4条错误的推理路径
+    error_paths = generate_error_reasoning_paths(correct_path, reasoning_text, temperature, max_tokens, engine)
+    
+    # 3. 返回完整结果
+    return {
+        "correct_reasoning_path": correct_path,
+        "error_reasoning_path_1": error_paths.get("error_path_1", ""),
+        "error_reasoning_path_2": error_paths.get("error_path_2", ""),
+        "error_reasoning_path_3": error_paths.get("error_path_3", ""),
+        "error_reasoning_path_4": error_paths.get("error_path_4", "")
+    }
     
     
