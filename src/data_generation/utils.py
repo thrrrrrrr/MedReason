@@ -1,4 +1,4 @@
-from openai import AzureOpenAI  # openai>=1.0.0
+from openai import OpenAI  # openai>=1.0.0
 import time
 import json
 import networkx as nx
@@ -12,24 +12,14 @@ import logging
 # Global variable to hold API cost across multiple LLM calls
 api_total_cost = 0.0
 
-clients = {
-    "gpt-4": {
-        'endpoint': "YOUR AZURE ENDPOINT",
-        'api_key': "YOUR API KEY",
-        'api_version': "2024-12-01-preview",
-        'name': 'gpt-4-1106-preview-nofilter',
-        'input_price': 2.75 / 10 ** 6,  # input price per Million tokens
-        'output_price': 11.0 / 10 ** 6, # output price per Million tokens
-        },
-    "gpt-4o": {
-        'endpoint': "YOUR AZURE ENDPOINT",
-        'api_key': "YOUR API KEY",
-        'api_version': "2024-12-01-preview",
-        'name': 'gpt-4o-0806-nofilter-global',
-        'input_price': 2.75 / 10 ** 6, # input price per Million tokens
-        'output_price': 11.0 / 10 ** 6, # output price per Million tokens
-        }
-}
+# OpenRouter configuration for DeepSeek-V3.2
+OPENROUTER_API_KEY = "xxxxxx"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEEPSEEK_MODEL = "deepseek/deepseek-chat"  # DeepSeek-V3.2 model
+
+# Pricing for DeepSeek-V3.2 on OpenRouter
+DEEPSEEK_INPUT_PRICE = 0.27 / 10 ** 6   # $0.27 per million tokens
+DEEPSEEK_OUTPUT_PRICE = 1.10 / 10 ** 6  # $1.10 per million tokens
 
 def init_logger(name=''):
     logger = logging.getLogger(__name__)
@@ -118,70 +108,71 @@ def generate_node_embeddings(knowledge_graph_path = 'data/kg_small.csv', emb_mod
     torch.save(nodeemb_dict, 'node_embeddings.pt')
     return
 
-def compute_usage(response, engine):
-    usage = response.usage.to_dict()
-    input = usage["prompt_tokens"]
-    reasoning = 0 if "completion_tokens_details" not in usage else usage["completion_tokens_details"]["reasoning_tokens"]
-    output = usage["completion_tokens"] - reasoning
+def compute_usage(response):
+    """Calculate API usage cost for DeepSeek-V3.2"""
+    usage = response.usage
+    input_tokens = usage.prompt_tokens
+    output_tokens = usage.completion_tokens
 
     cost = {
-        "input": input * clients[engine]['input_price'],
-        "output": output * clients[engine]['output_price'],
+        "input": input_tokens * DEEPSEEK_INPUT_PRICE,
+        "output": output_tokens * DEEPSEEK_OUTPUT_PRICE,
     }
 
     cost["total"] = sum(cost.values())
-
+    
     return cost
 
-def run_llm(prompt, temperature = 0.0, max_tokens = 3000, engine="gpt-4o", max_attempt = 10):
-    global api_total_cost  # declare to modify the global variable
-    client = AzureOpenAI(
-        azure_endpoint=clients[engine]['endpoint'],
-        api_key=clients[engine]['api_key'],
-        api_version=clients[engine]['api_version']
+def run_llm(prompt, temperature=0.0, max_tokens=3000, engine="deepseek", max_attempt=10):
+    """
+    Call DeepSeek-V3.2 via OpenRouter API
+    Args:
+        prompt: The prompt text
+        temperature: Sampling temperature (0.0-2.0)
+        max_tokens: Maximum tokens to generate
+        engine: Ignored, always uses DeepSeek-V3.2
+        max_attempt: Maximum retry attempts
+    """
+    global api_total_cost
+    
+    # Initialize OpenRouter client
+    client = OpenAI(
+        base_url=OPENROUTER_BASE_URL,
+        api_key=OPENROUTER_API_KEY,
     )
-        
-    if engine == "o1-preview":
-        messages = []
-    else:
-        messages = [{"role":"system","content":"You are an AI assistant that helps people find information."}]
-    message_prompt = {"role":"user","content":prompt}
-    messages.append(message_prompt)
+    
+    # Prepare messages
+    messages = [
+        {"role": "system", "content": "You are an AI assistant that helps people find information."},
+        {"role": "user", "content": prompt}
+    ]
+    
     flag = 0
-    while(flag == 0 and max_attempt > 0):
+    result = None
+    
+    while flag == 0 and max_attempt > 0:
         max_attempt -= 1
         try:
-            if engine in {"o1", "o3-mini", "o1-preview"}:
-                response = client.chat.completions.create(
-                    model=clients[engine]['name'],
-                    messages = messages,
-                    max_completion_tokens=max_tokens,
-                    frequency_penalty=0,)
-            elif engine == "gpt-3.5-turbo" or engine == "gpt-4":
-                response = client.chat.completions.create(
-                    model=clients[engine]['name'],
-                    messages = messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens + len(messages[0]['content']),
-                    frequency_penalty=0,)
-            else:
-                response = client.chat.completions.create(
-                    model=clients[engine]['name'],
-                    messages = messages,
-                    temperature=temperature,
-                    max_completion_tokens=max_tokens,
-                    frequency_penalty=0,)
+            response = client.chat.completions.create(
+                model=DEEPSEEK_MODEL,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            
             result = response.choices[0].message.content
-            cost = compute_usage(response, engine)
-            # Update the global API cost counter
+            cost = compute_usage(response)
+            
+            # Update global API cost
             api_total_cost += cost["total"]
-            # print(f"Total API cost so far (accumulated in run_llm calls): {api_total_cost}")
+            
             flag = 1
+            
         except Exception as e:
-            print(e)
-            result= "openai error, retry"
-            print("openai error, retry")
+            print(f"OpenRouter API error: {e}")
+            result = "openai error, retry"
             time.sleep(2)
+    
     return result
     
 def coarse_entity_extraction(text,temperature = 0.0, max_tokens = 3000, engine="gpt-4o"):

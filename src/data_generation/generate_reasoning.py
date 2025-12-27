@@ -166,7 +166,7 @@ if __name__ == '__main__':
     print(f"Using device: {device}")
     
     # generate node embeddings first if not exist
-    utils.generate_node_embeddings(knowledge_graph_path = 'data/kg_small.csv', emb_model_name = 'abhinand/MedEmbed-large-v0.1')
+    # utils.generate_node_embeddings(knowledge_graph_path = 'data/kg_small.csv', emb_model_name = 'abhinand/MedEmbed-large-v0.1')
     nodeemb_dict = torch.load('node_embeddings.pt')
             
     # ensure results directory exists
@@ -204,7 +204,7 @@ if __name__ == '__main__':
                     reason = "No reasoning path found. Error: " + str(e)
         
                 logger.info(f"Reasoning: {reason}")
-                data_list = {"id": ids, "question": question, "reasoning": reason, "huatuo": comparing_reasoning, "answer": answer, "options": options} 
+                data_list = {"id": ids, "question": question, "huatuo": comparing_reasoning, "answer": answer, "options": options, "reasoning": reason} 
         
                 f.write(json.dumps(data_list) + "\n")
     else:
