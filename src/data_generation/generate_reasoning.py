@@ -129,7 +129,7 @@ def process_sample(sample_id):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="medqa")
-    parser.add_argument("--sample", type=int, default=50)
+    parser.add_argument("--sample", type=int, default=2)
     parser.add_argument("--start_idx", type=int, default=0)
     parser.add_argument("--batch_size", type=int, default=1)
     args = parser.parse_args()
@@ -148,7 +148,7 @@ if __name__ == '__main__':
     
     dataset = QADataset(**dataset_configs[object_dataset_name])
     
-    primekg = pd.read_csv('/path/to/primeKG.csv', low_memory=False)
+    primekg = pd.read_csv('data/kg_small.csv', low_memory=False)
     selected_columns_list = primekg[['x_name','display_relation','y_name']].values.tolist()
     G = utils.build_graph(selected_columns_list)
 
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     print(f"Using device: {device}")
     
     # generate node embeddings first if not exist
-    # utils.generate_node_embeddings(knowledge_graph_path = '/path/to/kg.csv', emb_model_name = 'abhinand/MedEmbed-large-v0.1')
+    utils.generate_node_embeddings(knowledge_graph_path = 'data/kg_small.csv', emb_model_name = 'abhinand/MedEmbed-large-v0.1')
     nodeemb_dict = torch.load('node_embeddings.pt')
             
     # ensure results directory exists

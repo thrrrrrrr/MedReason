@@ -95,7 +95,7 @@ def find_all_path_KG(question_entities,result_entities,G):
             path_all+= list(nx.all_shortest_paths(G, q_entity.lower(), a_entity.lower()))
     return path_all
 
-def generate_node_embeddings(knowledge_graph_path = '/path/to/kg.csv', emb_model_name = 'abhinand/MedEmbed-large-v0.1'):
+def generate_node_embeddings(knowledge_graph_path = 'data/kg_small.csv', emb_model_name = 'abhinand/MedEmbed-large-v0.1'):
     knowledge_graph = pd.read_csv(knowledge_graph_path, low_memory=False)
     
     # Auto-select device

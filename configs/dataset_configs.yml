@@ -24,7 +24,7 @@ MMLU:
 # get the data at https://huggingface.co/datasets/bigbio/med_qa/tree/main
 medqa:
   file_type: json
-  path: /path/to/medqa.jsonl
+  path: ./eval_data/medqa_test.jsonl
   split: train
   parsers:
     question: [{key: question, prefix: "", suffix: ""}]
